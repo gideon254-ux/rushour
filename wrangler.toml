@@ -1,17 +1,8 @@
-name = "rushour-api"
-main = "workers/api/index.js"
-compatibility_date = "2024-01-01"
+# rushour - Cloudflare Pages + Workers Configuration
 
-# Routes - only handle /api/* requests
-routes = [
-  { pattern = "rushour.kipkiruigideon890.workers.dev/api/*", zone_name = "kipkiruigideon890.workers.dev" }
-]
+# For local development: npm run dev
+# For local API testing: npx wrangler dev
 
-# D1 Database (SQLite - Free, no card needed)
-[[d1_databases]]
-binding = "DB"
-database_name = "rushour-db"
-database_id = "1ab7d74a-3ae9-4fd9-996a-89ec369ad970"
-
-[vars]
-# No R2 needed - using Google Drive for file storage
+# NOTE: Do NOT run "wrangler deploy" from Pages
+# The API Worker should be deployed separately using: npx wrangler deploy
+# Or via GitHub Actions
