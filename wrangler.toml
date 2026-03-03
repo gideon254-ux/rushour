@@ -2,14 +2,11 @@ name = "rushour"
 main = "workers/api/index.js"
 compatibility_date = "2024-01-01"
 
-# IMPORTANT: You need to create a D1 database in Cloudflare Dashboard first
-# Then replace the database_id below with your actual D1 database ID
-
+# D1 Database (SQLite - Free, no card needed)
 [[d1_databases]]
 binding = "DB"
 database_name = "rushour-db"
 database_id = "1ab7d74a-3ae9-4fd9-996a-89ec369ad970"
 
 [vars]
-R2_BUCKET_NAME = "rushour-files"
-R2_ACCOUNT_ID = "REPLACE_WITH_YOUR_R2_ACCOUNT_ID"
+# No R2 needed - using Google Drive for file storage

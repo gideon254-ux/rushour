@@ -205,7 +205,8 @@ const handlePayPalSuccess = async (details, data) => {
       status: 'verified',
       download_token: Math.random().toString(36).substring(7),
       token_expiry: new Date(Date.now() + 3600000).toISOString(),
-      downloads_count: 0
+      downloads_count: 0,
+      download_url: props.product.download_url || ''
     })
     
     step.value = 3

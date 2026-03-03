@@ -45,7 +45,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useOrderStore } from '../stores/orders'
-import { getSignedDownloadUrl } from '../lib/r2'
 
 const orderStore = useOrderStore()
 
@@ -92,9 +91,9 @@ const verifyToken = async () => {
       downloads_count: order.downloads_count + 1
     })
 
-    // Get download URL from R2
-    if (order.r2_key) {
-      downloadUrl.value = await getSignedDownloadUrl(order.r2_key)
+    // Get download URL (stored in order when created)
+    if (order.download_url) {
+      downloadUrl.value = order.download_url
     } else {
       downloadUrl.value = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
     }

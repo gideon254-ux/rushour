@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   category TEXT DEFAULT 'book',
   image_url TEXT,
-  r2_key TEXT,
+  download_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS orders (
   token_expiry DATETIME,
   downloads_count INTEGER DEFAULT 0,
   mpesa_code TEXT,
+  download_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

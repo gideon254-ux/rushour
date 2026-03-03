@@ -40,12 +40,12 @@ export default {
       // POST /api/products - Create product
       if (path === '/api/products' && method === 'POST') {
         const body = await request.json();
-        const { name, price, description, category, image_url, r2_key } = body;
+        const { name, price, description, category, image_url, download_url } = body;
         
         const result = await db.prepare(
-          `INSERT INTO products (name, price, description, category, image_url, r2_key, created_at)
+          `INSERT INTO products (name, price, description, category, image_url, download_url, created_at)
            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
-        ).bind(name, price, description, category, image_url, r2_key).run();
+        ).bind(name, price, description, category, image_url, download_url).run();
         
         const newProduct = await db.prepare(
           'SELECT * FROM products WHERE id = ?'
@@ -76,16 +76,16 @@ export default {
         const body = await request.json();
         const { 
           email, product_id, payment_method, paypal_order_id, 
-          amount_paid, status, download_token, token_expiry, downloads_count, mpesa_code 
+          amount_paid, status, download_token, token_expiry, downloads_count, mpesa_code, download_url
         } = body;
         
         const result = await db.prepare(
-          `INSERT INTO orders (email, product_id, payment_method, paypal_order_id, amount_paid, status, download_token, token_expiry, downloads_count, mpesa_code, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+          `INSERT INTO orders (email, product_id, payment_method, paypal_order_id, amount_paid, status, download_token, token_expiry, downloads_count, mpesa_code, download_url, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
         ).bind(
           email, product_id, payment_method, paypal_order_id, 
           amount_paid, status || 'pending', download_token, 
-          token_expiry, downloads_count || 0, mpesa_code
+          token_expiry, downloads_count || 0, mpesa_code, download_url
         ).run();
         
         const newOrder = await db.prepare(

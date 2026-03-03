@@ -179,16 +179,14 @@
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-            <input v-model="newProduct.image_url" class="w-full p-2 border rounded-lg" placeholder="https://..." />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cover Image URL</label>
+            <input v-model="newProduct.image_url" class="w-full p-2 border rounded-lg" placeholder="https://images.unsplash.com/..." />
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Upload File</label>
-            <FileUploader 
-              v-model="newProduct.file" 
-              @uploaded="newProduct.r2_key = $event"
-            />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Download Link (Google Drive, Dropbox, etc.)</label>
+            <input v-model="newProduct.download_url" class="w-full p-2 border rounded-lg" placeholder="https://drive.google.com/uc?export=download&id=..." />
+            <p class="text-xs text-gray-500 mt-1">Paste your Google Drive or any download link here</p>
           </div>
           
           <div>
@@ -209,7 +207,6 @@
 import { ref, onMounted } from 'vue'
 import { useProductStore } from '../stores/products'
 import { useOrderStore } from '../stores/orders'
-import FileUploader from '../components/FileUploader.vue'
 
 const productStore = useProductStore()
 const orderStore = useOrderStore()
@@ -225,8 +222,7 @@ const newProduct = ref({
   description: '',
   category: 'book',
   image_url: '',
-  r2_key: '',
-  file: null
+  download_url: ''
 })
 
 const fetchData = async () => {
@@ -246,12 +242,12 @@ const handleAddProduct = async () => {
       description: newProduct.value.description,
       category: newProduct.value.category,
       image_url: newProduct.value.image_url,
-      r2_key: newProduct.value.r2_key
+      download_url: newProduct.value.download_url
     }
     
     await productStore.addProduct(productData)
     showProductForm.value = false
-    newProduct.value = { name: '', price: '', description: '', category: 'book', image_url: '', r2_key: '', file: null }
+    newProduct.value = { name: '', price: '', description: '', category: 'book', image_url: '', download_url: '' }
     alert('Product added successfully!')
   } catch (err) {
     console.error(err)
