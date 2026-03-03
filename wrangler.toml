@@ -1,8 +1,12 @@
-# rushour - Cloudflare Pages + Workers Configuration
+name = "rushour"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
 
-# For local development: npm run dev
-# For local API testing: npx wrangler dev
+# Serve static files from _html bucket
+site = { bucket = "./dist" }
 
-# NOTE: Do NOT run "wrangler deploy" from Pages
-# The API Worker should be deployed separately using: npx wrangler deploy
-# Or via GitHub Actions
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "rushour-db"
+database_id = "1ab7d74a-3ae9-4fd9-996a-89ec369ad970"

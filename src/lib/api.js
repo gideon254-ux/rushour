@@ -31,13 +31,16 @@ const MOCK_PRODUCTS = [
 
 const API_BASE = import.meta.env.VITE_API_URL
 
-// If no API URL, use mock data
+// If no API URL, use mock data (for demo mode)
 const useMock = !API_BASE
 
 async function request(endpoint, options = {}) {
   if (useMock) {
     console.log('Using mock data for', endpoint)
-    return { error: 'Demo mode - no backend' }
+    // Return mock data for products
+    if (endpoint === '/products') return MOCK_PRODUCTS
+    if (endpoint === '/orders') return []
+    return { error: 'Demo mode' }
   }
   
   const url = `${API_BASE}${endpoint}`
