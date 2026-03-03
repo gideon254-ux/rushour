@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { supabase, TABLES } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export const useOrderStore = defineStore('orders', {
   state: () => ({
@@ -11,13 +11,8 @@ export const useOrderStore = defineStore('orders', {
   actions: {
     async createOrder(order) {
       try {
-        const { data, error } = await supabase
-          .from(TABLES.ORDERS)
-          .insert([order])
-          .select()
-        
-        if (error) throw error
-        return data[0]
+        const newOrder = await api.createOrder(order)
+        return newOrder
       } catch (err) {
         console.error('Error creating order:', err)
         throw err
@@ -27,13 +22,8 @@ export const useOrderStore = defineStore('orders', {
     async fetchOrders() {
       this.loading = true
       try {
-        const { data, error } = await supabase
-          .from(TABLES.ORDERS)
-          .select('*')
-          .order('created_at', { ascending: false })
-        
-        if (error) throw error
-        this.orders = data || []
+        const orders = await api.getOrders()
+        this.orders = orders || []
       } catch (err) {
         this.error = err.message
       } finally {
@@ -43,14 +33,12 @@ export const useOrderStore = defineStore('orders', {
     
     async updateOrderStatus(id, updates) {
       try {
-        const { data, error } = await supabase
-          .from(TABLES.ORDERS)
-          .update(updates)
-          .eq('id', id)
-          .select()
-        
-        if (error) throw error
-        return data[0]
+        const updated = await api.updateOrder(id, updates)
+        const index = this.orders.findIndex(o => o.id === id)
+        if (index !== -1) {
+          this.orders[index] = updated
+        }
+        return updated
       } catch (err) {
         console.error('Error updating order:', err)
         throw err
@@ -62,7 +50,7 @@ export const useOrderStore = defineStore('orders', {
       const expiry = new Date()
       expiry.setHours(expiry.getHours() + 1)
       
-      return this.updateOrderStatus(id, {
+      return this.updateOrder(id, {
         status: 'verified',
         download_token: token,
         token_expiry: expiry.toISOString(),
@@ -71,19 +59,13 @@ export const useOrderStore = defineStore('orders', {
     },
     
     async rejectOrder(id) {
-      return this.updateOrderStatus(id, { status: 'rejected' })
+      return this.updateOrder(id, { status: 'rejected' })
     },
     
     async getOrderByToken(token) {
       try {
-        const { data, error } = await supabase
-          .from(TABLES.ORDERS)
-          .select('*')
-          .eq('download_token', token)
-          .single()
-        
-        if (error) throw error
-        return data
+        const order = await api.verifyToken(token)
+        return order
       } catch (err) {
         console.error('Error finding order:', err)
         return null

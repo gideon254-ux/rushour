@@ -1,0 +1,12 @@
+name = "rushour-api"
+main = "workers/api/index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rushour-db"
+database_id = "your-database-id-here"
+
+[vars]
+R2_BUCKET_NAME = "rushour-files"
+R2_ACCOUNT_ID = "your-account-id"

@@ -5,40 +5,87 @@ const R2_BUCKET_NAME = import.meta.env.VITE_R2_BUCKET_NAME || 'rushour-files'
 
 const R2_ENDPOINT = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
 
-async function signRequest(url, method = 'GET') {
-  const date = new Date().toUTCString()
-  const authDate = date.split(',')[0] + ' UTC'
-  
-  const signature = await crypto.subtle.sign(
-    'HMAC-SHA256',
-    await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(R2_SECRET_ACCESS_KEY),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    ),
-    new TextEncoder().encode(authDate)
+async function hmac(key, data) {
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(key),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
   )
-  
-  const signatureHex = Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  
-  return {
-    'Authorization': `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${authDate}/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature=${signatureHex}`,
-    'x-amz-date': authDate
-  }
+  const signature = await crypto.subtle.sign('HMAC-SHA256', cryptoKey, new TextEncoder().encode(data))
+  return new Uint8Array(signature)
+}
+
+async function sha256(data) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
+  return new Uint8Array(hashBuffer)
+}
+
+async function getSignature(key, dateStamp, region, service) {
+  const kDate = await hmac('AWS4' + key, dateStamp)
+  const kRegion = await hmac(Array.from(kDate), region)
+  const kService = await hmac(Array.from(kRegion), service)
+  const kSigning = await hmac(Array.from(kService), 'aws4_request')
+  return Array.from(kSigning).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 export async function uploadToR2(file, key) {
-  const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${key}`
+  const date = new Date()
+  const amzDate = date.toISOString().replace(/[:-]|\.\d{3}/g, '').substring(0, 15)
+  const dateStamp = amzDate.substring(0, 8)
+  const region = 'auto'
+  const service = 's3'
   
-  const response = await fetch(url, {
+  const canonicalUri = `/${R2_BUCKET_NAME}/${key}`
+  const canonicalQueryString = ''
+  const headers = {
+    'host': `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    'x-amz-date': amzDate,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD'
+  }
+  
+  const canonicalHeaders = Object.entries(headers)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}:${v}`)
+    .join('\n') + '\n'
+  
+  const signedHeaders = Object.keys(headers).sort().join(';')
+  
+  const canonicalRequest = [
+    'PUT',
+    canonicalUri,
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD'
+  ].join('\n')
+  
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    Array.from(await sha256(canonicalRequest)).map(b => b.toString(16).padStart(2, '0')).join('')
+  ].join('\n')
+  
+  const signature = await getSignature(R2_SECRET_ACCESS_KEY, dateStamp, region, service)
+  
+  const authorizationHeader = [
+    `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${credentialScope}`,
+    `SignedHeaders=${signedHeaders}`,
+    `Signature=${signature}`
+  ].join(', ')
+  
+  const response = await fetch(`${R2_ENDPOINT}/${R2_BUCKET_NAME}/${key}`, {
     method: 'PUT',
     body: file,
     headers: {
-      'Content-Type': file.type
+      'Content-Type': file.type,
+      'x-amz-date': amzDate,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+      'Authorization': authorizationHeader,
+      'host': `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
     }
   })
   
@@ -46,55 +93,49 @@ export async function uploadToR2(file, key) {
 }
 
 export async function getSignedDownloadUrl(key, expiresIn = 3600) {
-  const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${key}?X-Amz-Expires=${expiresIn}`
-  
   const date = new Date()
-  date.setSeconds(date.getSeconds() + expiresIn)
-  const expiry = date.toISOString().split('.')[0] + 'Z'
+  const amzDate = date.toISOString().replace(/[:-]|\.\d{3}/g, '').substring(0, 15)
+  const dateStamp = amzDate.substring(0, 8)
+  const region = 'auto'
+  const service = 's3'
+  
+  const expirySeconds = expiresIn
+  const canonicalUri = `/${R2_BUCKET_NAME}/${key}`
+  const canonicalQueryString = `X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${R2_ACCESS_KEY_ID}%2F${dateStamp}%2F${region}%2F${service}%2Faws4_request&X-Amz-Date=${amzDate}&X-Amz-Expires=${expirySeconds}&X-Amz-SignedHeaders=host`
   
   const headers = {
-    'x-amz-expires': expiresIn.toString(),
-    'x-amz-date': new Date().toISOString().split('.')[0].replace(/[-:]/g, '') + 'Z'
+    'host': `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   }
   
-  const stringToSign = `GET\n\n\n${expiry}\n/${R2_BUCKET_NAME}/${key}`
+  const canonicalHeaders = Object.entries(headers)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}:${v}`)
+    .join('\n') + '\n'
   
-  const keyBytes = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode('AWS4' + R2_SECRET_ACCESS_KEY),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
+  const signedHeaders = Object.keys(headers).sort().join(';')
   
-  const dateKey = await crypto.subtle.sign('HMAC-SHA256', keyBytes, new TextEncoder().encode(headers['x-amz-date'].substring(0, 8)))
-  const regionKey = await crypto.subtle.sign('HMAC-SHA256', dateKey, new TextEncoder().encode('us-east-1'))
-  const serviceKey = await crypto.subtle.sign('HMAC-SHA256', regionKey, new TextEncoder().encode('s3'))
-  const signingKey = await crypto.subtle.sign('HMAC-SHA256', serviceKey, new TextEncoder().encode('aws4_request'))
+  const canonicalRequest = [
+    'GET',
+    canonicalUri,
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD'
+  ].join('\n')
   
-  const signature = await crypto.subtle.sign(
-    'HMAC-SHA256',
-    signingKey,
-    new TextEncoder().encode(stringToSign)
-  )
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    Array.from(await sha256(canonicalRequest)).map(b => b.toString(16).padStart(2, '0')).join('')
+  ].join('\n')
   
-  const signatureHex = Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
+  const signature = await getSignature(R2_SECRET_ACCESS_KEY, dateStamp, region, service)
   
-  const signedUrl = `${url}&X-Amz-Signature=${signatureHex}`
+  const signedUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${key}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${R2_ACCESS_KEY_ID}/${credentialScope}&X-Amz-Date=${amzDate}&X-Amz-Expires=${expirySeconds}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signature}`
   
   return signedUrl
-}
-
-export async function deleteFromR2(key) {
-  const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${key}`
-  
-  const response = await fetch(url, {
-    method: 'DELETE'
-  })
-  
-  return response.ok
 }
 
 export { R2_BUCKET_NAME }
